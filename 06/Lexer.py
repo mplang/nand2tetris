@@ -7,7 +7,6 @@ Created on Wed Sep 28 10:26:01 2016
 
 from enum import Enum
 from collections import deque, namedtuple
-from pprint import pprint
 from HackToken import HackToken
 
 Symbol = namedtuple("Symbol", ["Token", "Lexeme"])
@@ -18,7 +17,7 @@ class CharacterClass(Enum):
     LETTER = 1
     DIGIT = 2
     WHITESPACE = 3
-    UNDERSCORE = 4
+    MISC_CHAR = 4
     OTHER = 5
     EOF = 6
 
@@ -55,8 +54,8 @@ class Lexer(object):
                 self.char_class = CharacterClass.DIGIT
             elif c.isspace():
                 self.char_class = CharacterClass.WHITESPACE
-            elif c == '_':
-                self.char_class = CharacterClass.UNDERSCORE
+            elif c in ['_', '.', '$', ':']:
+                self.char_class = CharacterClass.MISC_CHAR
             else:
                 self.char_class = CharacterClass.OTHER
         except StopIteration:
@@ -70,12 +69,13 @@ class Lexer(object):
     def _lex(self):
         self._get_non_blank()
         lexeme = self.next_char
-        if self.char_class == CharacterClass.LETTER:
+        if (self.char_class == CharacterClass.LETTER
+            or self.char_class == CharacterClass.MISC_CHAR):
             # parse identifiers
             self._get_char()
             while (self.char_class == CharacterClass.LETTER
                    or self.char_class == CharacterClass.DIGIT
-                   or self.char_class == CharacterClass.UNDERSCORE):
+                   or self.char_class == CharacterClass.MISC_CHAR):
                 lexeme += self.next_char
                 self._get_char()
             return Symbol(HackToken.IDENTIFIER, lexeme)
