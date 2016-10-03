@@ -13,6 +13,15 @@ class HackToken(Enum):
     """
     IDENTIFIER = 1
     NUMBER = 2
-    OPERATOR = 3
-    EOF = 4
-    ERROR = 5
+    OP_LPAREN = 3
+    OP_RPAREN = 4
+    OP_ADDR = 5
+    OP_ASSIGN = 6
+    OP_PLUS = 7
+    OP_MINUS = 8
+    OP_NOT = 9
+    OP_AND = 10
+    OP_OR = 11
+    OP_SEMICOLON = 12  
+    EOF = 13
+    ERROR = 14
