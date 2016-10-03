@@ -9,7 +9,7 @@ from enum import Enum
 from collections import deque, namedtuple
 from HackToken import HackToken
 
-Symbol = namedtuple("Symbol", ["Token", "Lexeme"])
+Token = namedtuple("Token", ["Token", "Lexeme"])
 
 class CharacterClass(Enum):
     """Represents the general kinds of characters in the input
@@ -30,18 +30,27 @@ class Lexer(object):
         self.next_char = None
         self.char_class = CharacterClass.EOF
         self._skip_line = False
-        self.symbols = deque()
+        self.tokens = deque()
 
-    def has_more_symbols(self):
-        """Returns True if there are more symbols in the input
+    def has_more_tokens(self):
+        """Returns True if there are more tokens in the input
         """
-        return len(self.symbols) > 0
+        return len(self.tokens) > 0
 
-    def get_next_symbol(self):
-        """Returns the next symbol in the input, None if no symbols left
+    def get_next_token(self):
+        """Returns the next token in the input, None if no symbols left
         """
         try:
-            return self.symbols.popleft()
+            return self.tokens.popleft()
+        except:
+            return None
+
+    def peek_next_token(self):
+        """Returns the next token in the input,
+           but does not remove it from the queue
+        """
+        try:
+            return self.tokens[0]
         except:
             return None
 
@@ -90,14 +99,14 @@ class Lexer(object):
                    or self.char_class == CharacterClass.MISC_CHAR):
                 lexeme += self.next_char
                 self._get_char()
-            return Symbol(HackToken.IDENTIFIER, lexeme)
+            return Token(HackToken.IDENTIFIER, lexeme)
         elif self.char_class == CharacterClass.DIGIT:
             # parse integer literals
             self._get_char()
             while self.char_class == CharacterClass.DIGIT:
                 lexeme += self.next_char
                 self._get_char()
-            return Symbol(HackToken.NUMBER, lexeme)
+            return Token(HackToken.NUMBER, lexeme)
         elif self.char_class == CharacterClass.OTHER:
             # parse operators and comments
             if self.next_char == '/':
@@ -110,14 +119,14 @@ class Lexer(object):
                     return None
                 else:
                     # Not a comment; a single forward slash is invalid
-                    return Symbol(HackToken.ERROR, lexeme)
+                    return Token(HackToken.ERROR, lexeme)
             else:
                 self._get_char()
-                return Symbol(self._get_oper_token(lexeme), lexeme)
+                return Token(self._get_oper_token(lexeme), lexeme)
         elif self.char_class == CharacterClass.EOF:
-            return Symbol(HackToken.EOF, None)
+            return Token(HackToken.EOF, None)
         else:
-            return Symbol(HackToken.ERROR, None)
+            return Token(HackToken.ERROR, None)
 
     def _get_oper_token(self, lexeme):
         if lexeme == '(':
@@ -144,8 +153,8 @@ class Lexer(object):
             return HackToken.ERROR
 
     def display_symbols(self):
-        for s in self.symbols:
-            print("{}, {}".format(s.Token.name, s.Lexeme))
+        for t in self.tokens:
+            print("{}, {}".format(t.Token.name, t.Lexeme))
 
     def analyze(self):
         """Begins the lexical analysis of the Hack assembly source file
@@ -157,7 +166,7 @@ class Lexer(object):
                 continue
             if next_symbol.Token == HackToken.ERROR:
                 raise Exception("Bad token!", next_symbol.Lexeme)
-            self.symbols.append(next_symbol)
+            self.tokens.append(next_symbol)
             if next_symbol.Token == HackToken.EOF:
                 break
 
