@@ -5,12 +5,13 @@ Created on Wed Sep 28 10:26:01 2016
 @author: mlang
 """
 
-from enum import Enum
+from enum import Enum, unique
 from collections import deque, namedtuple
 from HackToken import HackToken
 
 Token = namedtuple("Token", ["Token", "Lexeme"])
 
+@unique
 class CharacterClass(Enum):
     """Represents the general kinds of characters in the input
     """
@@ -177,6 +178,6 @@ class Lexer(object):
                 break
 
 if __name__ == "__main__":
-    l = Lexer('Pong.asm')
+    l = Lexer(r"C:\Users\mlang\Desktop\programming\nand2tetris\06\add\Add.asm")
     l.analyze()
     l.display_symbols()

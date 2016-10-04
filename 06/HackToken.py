@@ -5,9 +5,9 @@ Created on Wed Sep 28 10:26:24 2016
 @author: mlang
 """
 
-from enum import Enum
+from enum import Enum, unique
 
-
+@unique
 class HackToken(Enum):
     """Enumeration of all valid Hack assembly language tokens
     """
@@ -22,6 +22,6 @@ class HackToken(Enum):
     OP_NOT = 9
     OP_AND = 10
     OP_OR = 11
-    OP_SEMICOLON = 12  
+    OP_SEMICOLON = 12
     EOF = 13
     ERROR = 14

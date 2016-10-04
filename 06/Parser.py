@@ -6,8 +6,9 @@ Created on Fri Sep 30 14:27:59 2016
 """
 from Lexer import Lexer, Token
 from HackToken import HackToken
-from enum import Enum
+from enum import Enum, unique
 
+@unique
 class CommandType(Enum):
     """Enumeration of command types
     """
@@ -40,23 +41,24 @@ class Parser(object):
         if token == HackToken.IDENTIFIER or token == HackToken.NUMBER:
             self._command_type = CommandType.A_COMMAND
             self._symbol = lexeme
+        else:
+            raise Exception("Invalid input '{}'; expected identifier or number."
+                            .format(lexeme))
+
+    def _parse_l_command(self):
+        """Parses label commands of the form (symbol)
+        """
+        token, lexeme = self._next_token
+        if token == HackToken.IDENTIFIER:
+            self._command_type = CommandType.L_COMMAND
+            self._symbol = lexeme
             # Consume and ignore the next token
             # Well, mostly ignore -- it's useful for error checking
             token, lexeme = self._next_token
             if token != HackToken.OP_RPAREN:
                 raise Exception("Invalid input '{}'; expected ')'.".format(lexeme))
         else:
-            raise Exception("Invalid input '{}'; expected ')'.".format(lexeme))
-
-    def _parse_l_command(self):
-        """Parses label commands of the form (symbol)
-        """
-        token, lexeme = self._next_token
-        if token == HackToken.IDENTIFIER or token == HackToken.NUMBER:
-            self._command_type = CommandType.L_COMMAND
-            self._symbol = lexeme
-        else:
-            raise Exception("Invalid input '{}'; expected ')'.".format(lexeme))
+            raise Exception("Invalid input '{}'; expected identifier.".format(lexeme))
 
     def _parse_dest(self, token, lexeme):
         """Sets the dest part of the c-command, if there is one
@@ -69,8 +71,9 @@ class Parser(object):
             return self._next_token
         else:
             # This is not the dest; return it back to the caller
+            self._dest = None
             return Token(token, lexeme)
-    
+
     def _parse_comp(self, token, lexeme):
         """Sets the comp part of the c-command; this is required
         """
@@ -81,24 +84,27 @@ class Parser(object):
             self._comp += l     # concatenate the two lexemes
         elif token == HackToken.NUMBER or token == HackToken.IDENTIFIER:
             t, l = self._peek_next_token()
-            if t != HackToken.OP_SEMICOLON:
-                # We've got a binary operator
-                # Or, we hope we do
-                # TODO: Add error checking here
+            if t in [HackToken.OP_AND, HackToken.OP_OR, HackToken.OP_PLUS, HackToken.OP_MINUS]:
+                # We've got a binary operator; use it and get the other operand
+                _, l = self._next_token
                 _, ll = self._next_token
-                self._comp += ll
+                self._comp += (l + ll)
         else:
             raise Exception("Invalid input '{}'.".format(lexeme))
 
     def _parse_jump(self):
         """Sets the jump part of the c-command, if it exists
         """
-        t, _ = self._next_token
+        t, _ = self._peek_next_token()
         if t == HackToken.OP_SEMICOLON:
-            # Found a semicolon; next token should be the jump value
+            # Consume the semicolon; next token should be the jump value
             # TODO: Add error checking here
+            self._next_token
             _, l = self._next_token
             self._jump = l
+        else:
+            # No jump
+            self._jump = None
 
     def _parse_c_command(self, token, lexeme):
         """Parses commands of the following forms:
@@ -107,7 +113,7 @@ class Parser(object):
             comp;jump
             comp
         """
-        self.command_type = CommandType.C_COMMAND
+        self._command_type = CommandType.C_COMMAND
         comp_tok, comp_val = self._parse_dest(token, lexeme)
         self._parse_comp(comp_tok, comp_val)
         self._parse_jump()
@@ -122,6 +128,9 @@ class Parser(object):
                 self._parse_a_command()
             elif token == HackToken.OP_LPAREN:
                 self._parse_l_command()
+            elif token == HackToken.EOF:
+                self._command_type = None
+                self._symbol = None
             else:
                 self._parse_c_command(token, lexeme)
         except Exception as ex:
@@ -139,18 +148,18 @@ class Parser(object):
 
     @property
     def dest(self):
-        return self._dest
+        return self._dest or "null"
 
-    @property    
+    @property
     def comp(self):
         return self._comp
 
-    @property    
+    @property
     def jump(self):
-        return self._jump
+        return self._jump or "null"
 
 if __name__ == "__main__":
-    p = Parser("Pong.asm")
+    p = Parser(r"C:\Users\mlang\Desktop\programming\nand2tetris\06\add\Add.asm")
     while p.has_more_commands():
         p.advance()
-        print(p._next_command)
+        print(p.command_type)

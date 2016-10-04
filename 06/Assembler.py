@@ -4,6 +4,7 @@ Created on Mon Oct  3 19:57:43 2016
 
 @author: michael
 """
+import os.path
 from Parser import Parser, CommandType
 from SymbolTable import SymbolTable
 import Code
@@ -11,11 +12,16 @@ import Code
 class Assembler(object):
     _BASE_VAR_ADDR = 16  # The first available memory address for variables
 
-    def __init__(self, infile, outfile):
+    def __init__(self, infile):
         self._parser = Parser(infile)
         self._symbol_table = SymbolTable()
         self._var_addr = self._BASE_VAR_ADDR
-        self._outfile = outfile
+        
+        # create the output filename from the input filenam
+        base, ext = os.path.splitext(infile)
+        if ext.lower() != ".asm":
+            base = infile
+        self._outfile = "{}.hack".format(base)
 
     def _first_pass(self):
         instr_count = 0
@@ -46,10 +52,10 @@ class Assembler(object):
                     addr = self._get_address(symbol)
                     f.write(Code.gen_a_command(addr) + '\n')
                 elif cmd_type == CommandType.C_COMMAND:
-                    Code.gen_c_command(
-                        self._parser.dest, 
-                        self._parser.comp, 
-                        self._parser.jump)
+                    f.write(Code.gen_c_command(
+                        self._parser.dest,
+                        self._parser.comp,
+                        self._parser.jump) + '\n')
 
     def _get_address(self, symbol):
         try:
@@ -63,3 +69,11 @@ class Assembler(object):
                 self._symbol_table.add_entry(symbol, self._var_addr)
                 self._var_addr += 1
             return self._symbol_table.get_address(symbol)
+
+    def assemble(self):
+        self._first_pass()
+        self._second_pass()
+
+if __name__ == "__main__":
+    a = Assembler(r"C:\Users\mlang\Desktop\programming\nand2tetris\06\pong\Pong.asm")
+    a.assemble()
