@@ -5,15 +5,23 @@ Created on Fri Sep 30 14:55:54 2016
 @author: mlang
 """
 
-class Code(object):
-    def __init__(self):
-        pass
+def gen_a_command(self, address):
+    """Returns the binary representation of the a-command for the given address
+    """
+    # 1. Convert the decimal address to a binary string representation
+    # 2. Strip the "0b" prefix
+    # 3. Retain the least-significan 15 bits
+    # 4. Left-fill to 16 zeros
+    return bin(address)[2:][-15:].zfill(16)
 
-    def dest(self):
-        pass
+def gen_c_command(self, dest, comp, jump):
+    pass
 
-    def comp(self):
-        pass
+def _dest():
+    pass
 
-    def jump(self):
-        pass
+def _comp():
+    pass
+
+def _jump():
+    pass

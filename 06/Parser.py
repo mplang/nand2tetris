@@ -137,14 +137,17 @@ class Parser(object):
     def symbol(self):
         return self._symbol
 
+    @property
     def dest(self):
-        pass
+        return self._dest
 
+    @property    
     def comp(self):
-        pass
+        return self._comp
 
+    @property    
     def jump(self):
-        pass
+        return self._jump
 
 if __name__ == "__main__":
     p = Parser("Pong.asm")

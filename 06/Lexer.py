@@ -35,13 +35,19 @@ class Lexer(object):
     def has_more_tokens(self):
         """Returns True if there are more tokens in the input
         """
-        return len(self.tokens) > 0
+        return (len(self.tokens) > 0 
+                and self.peek_next_token().Token != HackToken.EOF)
 
     def get_next_token(self):
-        """Returns the next token in the input, None if no symbols left
+        """Returns the next token in the input
         """
         try:
-            return self.tokens.popleft()
+            # Return the token at the front of the queue and add it back
+            # to the end of the queue. This is so that we can implement a
+            # two-stage assembler without having to re-lex the file
+            token = self.tokens.popleft()
+            self.tokens.append(token)
+            return token
         except:
             return None
 

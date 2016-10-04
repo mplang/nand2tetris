@@ -24,6 +24,8 @@ class SymbolTable(object):
     def contains(self, symbol):
         """Returns True if the given symbol exists in the symbol table
         """
+        # This method is more-or-less unnecessary, but it conforms to the
+        # documented API
         return symbol in self._symbol_table
 
     def get_address(self, symbol):
