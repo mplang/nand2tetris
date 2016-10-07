@@ -93,6 +93,17 @@ class Lexer(object):
     def _get_non_blank(self):
         while self.char_class == CharacterClass.WHITESPACE:
             self._get_char()
+    
+    def _lookup_keyword(self, lexeme):
+        # arithmetic commands
+        a = ('add', 'sub', 'neg', 'eq', 'gt', 'lt', 'and', 'or', 'not')
+        b = {'push': 'PUSH', 'pop': 'POP',
+             'label': 'LABEL', 'goto': 'GOTO', 'if-goto': 'IF',
+             'function': 'FUNCTION', 'call': 'CALL', 'return': 'RETURN'}
+        if lexeme in a:
+            return VmToken.ARITHMETIC
+        else:
+            return VmToken[b.get(lexeme, 'IDENTIFIER')]
 
     def _lex(self):
         self._get_non_blank()
@@ -106,7 +117,7 @@ class Lexer(object):
                    or self.char_class == CharacterClass.MISC_CHAR):
                 lexeme += self.next_char
                 self._get_char()
-            return Token(VmToken.IDENTIFIER, lexeme)
+            return Token(self._lookup_keyword(lexeme), lexeme)
         elif self.char_class == CharacterClass.DIGIT:
             # parse integer literals
             self._get_char()

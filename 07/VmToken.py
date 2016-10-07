@@ -13,5 +13,14 @@ class VmToken(Enum):
     """
     IDENTIFIER = 1
     NUMBER = 2
-    EOF = 3
-    ERROR = 4
+    ARITHMETIC = 3
+    PUSH = 4
+    POP = 5
+    LABEL = 6
+    GOTO = 7
+    IF = 8
+    FUNCTION = 9
+    CALL = 10
+    RETURN = 11
+    EOF = 12
+    ERROR = 13
