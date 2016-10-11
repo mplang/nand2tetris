@@ -26,53 +26,71 @@ class CodeWriter(object):
         if ext.lower() != ".vm":
             base = infile
         self._outfile = "{}.asm".format(base)
+        self._label_count = 0
+        self._file = open(self._outfile, 'w')
+    
+    def done(self):
+        self._file.close()
 
     # Arithmetic and logic commands
 
-    def _add(self):
-        self._binary("D+A")
-
-    def _sub(self):
-        self._binary("A-D")
-        #self._binary("D-A")
-
-    def _and(self):
-        self._binary("D&A")
-
-    def _or(self):
-        self._binary("D|A")
-    
-    def _neg(self):
-        self._unary("-D")
-        
     def _unary(self, comp):
+        """Handle unary arithmetic commands
+        
+        :param comp: The c-command comp field for the operation (!D, -D)
+        """
         self._stack_to_dest("A")
         self._c_command("D", comp)
         self._comp_to_stack("D")
-    
+
     def _binary(self, comp):
+        """Handle binary arithmetic commands
+        
+        :param comp: The c-command comp field for the operation (D+A, A-D, etc)
+        """
         self._stack_to_dest("D")
         self._unary(comp)
-#        self._stack_to_dest("D")
-#        self._stack_to_dest("A")
-#        self._c_command("D", comp)
-#        self._comp_to_stack("D")
+
+    # Comparison/jump commands
+
+    def _comparison(self, jump):
+        """Handle EQ, LT, and GT
+        
+        :param jump: The jump value for the comparison (JEQ, JLT, JGT)
+        """
+        self._stack_to_dest("D")    # pop Op2
+        self._stack_to_dest("A")    # pop Op1
+        self._c_command("D", "A-D") # Op1-Op2
+        eq_label = self._get_label()
+        # if the comparison is true, jump to (eq_label)
+        self._jump(eq_label, None, "D", jump)   # @eq_label # D;JUMP
+        # else, push false (0) on the stack...
+        self._comp_to_stack("0")
+        # ...and jump to (neq_label)
+        neq_label = self._get_label()
+        self._jump(neq_label, None, "0", "JMP")
+        # (eq_label) here, push true (-1) on the stack
+        self._l_command(eq_label)
+        self._comp_to_stack("-1")
+        # (neq_label)
+        self._l_command(neq_label)
+
+    def _jump(self, label, dest, comp, jump):
+        self._a_command(label)
+        self._c_command(dest, comp, jump)
 
     # Stack manipulation
 
     def _push(self, segment, index):
         if segment == self.SegmentType.constant.name:
-            self._push_constant(index)
+            self._push_value(index)
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
 
-    def _push_constant(self, value):
-        self._a_command(value)      # @value
-        self._c_command("D", "A")   # D=A
-        self._a_command("SP")       # @SP
-        self._c_command("A", "M")   # A=M
-        self._c_command("M", "D")   # M=D
-        self._inc_sp()              # ++SP
+    def _push_value(self, value):
+        self._a_command(value)
+        self._c_command("D", "A")
+        self._comp_to_stack("D")
 
     def _pop(self, segment, index):
         pass
@@ -127,11 +145,24 @@ class CodeWriter(object):
             line += ';' + jump
         self._writeline(line)
 
+    def _l_command(self, label):
+        """Generates an l-command from the given label
+        """
+        line = "({})".format(label)
+        self._writeline(line)
+
     def _writeline(self, line):
         """Writes a line of translated code to the file
         """
-        #self._file.write("{}\n".format(line))
-        print(line)
+        self._file.write("{}\n".format(line))
+        #print(line)
+
+    def _get_label(self):
+        """Returns the next sequential label
+        """
+        label = "LABEL{}".format(self._label_count)
+        self._label_count += 1
+        return label
 
     # Public methods
 
@@ -149,22 +180,22 @@ class CodeWriter(object):
         """Translates arithmetic and logic commands
         """
         if command == "add":
-            self._add()
+            self._binary("D+A")
         elif command == "sub":
-            self._sub()
+            self._binary("A-D")
         elif command == "and":
-            self._and()
+            self._binary("D&A")
         elif command == "or":
-            self._or()
+            self._binary("D|A")
         elif command == "neg":
-            self._neg()
-        elif command == "eq":
-            pass
-        elif command == "gt":
-            pass
-        elif command == "lt":
-            pass
+            self._unary("-D")
         elif command == "not":
-            pass
+            self._unary("!D")
+        elif command == "eq":
+            self._comparison("JEQ")
+        elif command == "gt":
+            self._comparison("JGT")
+        elif command == "lt":
+            self._comparison("JLT")
         else:
             raise Exception('Unknown command "{}".'.format(command))

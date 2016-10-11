@@ -23,7 +23,9 @@ class VMtranslator(object):
                 self._writer.write_push_pop(p.command_type, p.arg1, p.arg2)
             else:
                 raise Exception('Unknown command type "{}".'.format(p.command_type))
+        self._writer.done()
 
 if __name__ == "__main__":
-    translator = VMtranslator(r"C:\Users\mlang\Desktop\programming\nand2tetris\07\StackArithmetic\SimpleAdd\SimpleSub.vm")
+    translator = VMtranslator(r"\Users\mlang\Desktop\programming\nand2tetris\07\StackArithmetic\StackTest\StackTest.vm")
     translator.translate()
+    
