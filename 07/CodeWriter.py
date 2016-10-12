@@ -20,15 +20,22 @@ class CodeWriter(object):
         pointer = 7
         temp = 8
 
+    # map of segment types to assembler register labels
+    _seg_reg_map = {
+                SegmentType.argument: 'ARG',
+                SegmentType.local: "LCL",
+                SegmentType.this: "THIS",
+                SegmentType.that: "THAT"}
+
     def __init__(self, infile):
         # create the output filename from the input filenam
-        base, ext = os.path.splitext(infile)
+        self._basename, ext = os.path.splitext(infile)
         if ext.lower() != ".vm":
             base = infile
         self._outfile = "{}.asm".format(base)
         self._label_count = 0
         self._file = open(self._outfile, 'w')
-    
+
     def done(self):
         self._file.close()
 
@@ -36,16 +43,16 @@ class CodeWriter(object):
 
     def _unary(self, comp):
         """Handle unary arithmetic commands
-        
+
         :param comp: The c-command comp field for the operation (!D, -D)
         """
         self._stack_to_dest("A")
         self._c_command("D", comp)
-        self._comp_to_stack("D")
+        self._push_comp("D")
 
     def _binary(self, comp):
         """Handle binary arithmetic commands
-        
+
         :param comp: The c-command comp field for the operation (D+A, A-D, etc)
         """
         self._stack_to_dest("D")
@@ -55,7 +62,7 @@ class CodeWriter(object):
 
     def _comparison(self, jump):
         """Handle EQ, LT, and GT
-        
+
         :param jump: The jump value for the comparison (JEQ, JLT, JGT)
         """
         self._stack_to_dest("D")    # pop Op2
@@ -65,17 +72,19 @@ class CodeWriter(object):
         # if the comparison is true, jump to (eq_label)
         self._jump(eq_label, None, "D", jump)   # @eq_label # D;JUMP
         # else, push false (0) on the stack...
-        self._comp_to_stack("0")
+        self._push_comp("0")
         # ...and jump to (neq_label)
         neq_label = self._get_label()
         self._jump(neq_label, None, "0", "JMP")
         # (eq_label) here, push true (-1) on the stack
         self._l_command(eq_label)
-        self._comp_to_stack("-1")
+        self._push_comp("-1")
         # (neq_label)
         self._l_command(neq_label)
 
     def _jump(self, label, dest, comp, jump):
+        """Generates a pair of commands to jump to the given label
+        """
         self._a_command(label)
         self._c_command(dest, comp, jump)
 
@@ -84,13 +93,63 @@ class CodeWriter(object):
     def _push(self, segment, index):
         if segment == self.SegmentType.constant.name:
             self._push_value(index)
+        elif (segment == self.SegmentType.argument.name
+              or segment == self.SegmentType.local.name
+              or segment == self.SegmentType.this.name
+              or segment == self.SegmentType.that.name):
+            self._push_mem(self._seg_reg_map[segment], index)
+        elif segment == self.SegmentType.pointer.name:
+            if index != "0" or index != "1":
+                raise Exception('Segment index out of range.')
+            else:
+                self._push_reg("THIS" if index == "0" else "THAT")
+        elif segment == self.SegmentType.temp.name:
+            try:
+                idx = int(index)
+            except:
+                raise Exception('Invalid segment index value.')
+            if idx < 0 or idx > 7:
+                raise Exception('Segment index out of range.')
+            else:
+                self._push_reg("R{}".format(5+idx))
+        elif segment == self.SegmentType.static.name:
+            self._push_reg("{}.{}".format(self._basename, index))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
 
     def _push_value(self, value):
+        """Pushes the given immediate value on the stack
+        """
         self._a_command(value)
         self._c_command("D", "A")
-        self._comp_to_stack("D")
+        self._push_comp("D")
+    
+    def _push_comp(self, comp):
+        """Pushes the value of the given comp field on the stack
+        """
+        self._load_sp()
+        self._c_command("M", comp)
+        self._inc_sp()
+    
+    def _push_mem(self, reg, offset):
+        """Pushes the value at M[*reg+offset] on the stack
+        """
+        self._a_command(offset)
+        self._c_command("D", "A")
+        self._a_command(reg)
+        self._c_command("A", "M")
+        self._c_command("A", "D+A")
+        self._c_command("D", "M")
+        self._load_sp()
+        self._c_command("M", "D")
+        self._inc_sp()
+    
+    def _push_reg(self, reg):
+        """Pushes the register value on the stack
+        """
+        self._a_command(reg)
+        self._c_command("D", "M")
+        self._push_comp("D")
 
     def _pop(self, segment, index):
         pass
@@ -101,11 +160,6 @@ class CodeWriter(object):
         self._dec_sp()              # --SP
         self._load_sp()            # A=M[SP]
         self._c_command(dest, "M")  # dest=M[A]
-
-    def _comp_to_stack(self, comp):
-        self._load_sp()
-        self._c_command("M", comp)
-        self._inc_sp()
 
     def _load_sp(self):
         """Gets the value of the stack pointer and stores it in the A register
