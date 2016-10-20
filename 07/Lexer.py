@@ -165,6 +165,6 @@ class Lexer(object):
                 break
 
 if __name__ == "__main__":
-    l = Lexer(r"C:\Users\mlang\Desktop\programming\nand2tetris\07\StackArithmetic\StackTest\StackTest.vm")
+    l = Lexer("nand2tetris\07\StackArithmetic\StackTest\StackTest.vm")
     l.analyze()
     l.display_symbols()

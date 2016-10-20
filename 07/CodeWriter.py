@@ -4,7 +4,6 @@ Created on Mon Oct 10 10:45:24 2016
 
 @author: mlang
 """
-import os.path
 from VmToken import VmToken
 from enum import Enum, unique
 
@@ -27,16 +26,15 @@ class CodeWriter(object):
                 SegmentType.this: "THIS",
                 SegmentType.that: "THAT"}
 
-    def __init__(self, infile):
-        # create the output filename from the input filenam
-        self._basename, ext = os.path.splitext(infile)
-        if ext.lower() != ".vm":
-            base = infile
-        self._outfile = "{}.asm".format(base)
+    def __init__(self, out_filename):
+        self._out_filename = out_filename
         self._label_count = 0
-        self._file = open(self._outfile, 'w')
+    
+    def __enter__(self):
+        self._file = open(self._out_filename, 'w')
+        return self
 
-    def done(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         self._file.close()
 
     # Arithmetic and logic commands

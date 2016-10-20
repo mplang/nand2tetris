@@ -96,7 +96,7 @@ class Parser(object):
 
 
 if __name__ == "__main__":
-    p = Parser(r"C:\Users\mlang\Desktop\programming\nand2tetris\07\StackArithmetic\SimpleAdd\SimpleAdd.vm")
+    p = Parser("nand2tetris\07\StackArithmetic\SimpleAdd\SimpleAdd.vm")
     while p.has_more_commands():
         p.advance()
         print(p.command_type, p.arg1, p.arg2)
