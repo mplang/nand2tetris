@@ -218,3 +218,6 @@ pip-log.txt
 *.cmp
 *.tst
 *.out
+*.vm
+*.asm
+*.hack
