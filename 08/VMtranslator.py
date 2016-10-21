@@ -40,6 +40,12 @@ class VMtranslator(object):
                         writer.write_arithmetic(p.arg1)
                     elif p.command_type == VmToken.POP or p.command_type == VmToken.PUSH:
                         writer.write_push_pop(p.command_type, p.arg1, p.arg2)
+                    elif p.command_type == VmToken.LABEL:
+                        writer.write_label(p.arg1)
+                    elif p.command_type == VmToken.IF:
+                        writer.write_if(p.arg1)
+                    elif p.command_type == VmToken.GOTO:
+                        writer.write_goto(p.arg1)
                     else:
                         raise Exception('Unknown command type "{}".'.format(p.command_type))
 

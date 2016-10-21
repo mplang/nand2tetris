@@ -44,7 +44,7 @@ class CodeWriter(object):
 
         :param comp: The c-command comp field for the operation (!D, -D)
         """
-        self._stack_to_dest("A")
+        self._pop_to_dest("A")
         self._c_command("D", comp)
         self._push_comp("D")
 
@@ -53,7 +53,7 @@ class CodeWriter(object):
 
         :param comp: The c-command comp field for the operation (D+A, A-D, etc)
         """
-        self._stack_to_dest("D")
+        self._pop_to_dest("D")
         self._unary(comp)
 
     # Comparison/jump commands
@@ -63,8 +63,8 @@ class CodeWriter(object):
 
         :param jump: The jump value for the comparison (JEQ, JLT, JGT)
         """
-        self._stack_to_dest("D")    # pop Op2
-        self._stack_to_dest("A")    # pop Op1
+        self._pop_to_dest("D")    # pop Op2
+        self._pop_to_dest("A")    # pop Op1
         self._c_command("D", "A-D") # Op1-Op2
         eq_label = self._get_label()
         # if the comparison is true, jump to (eq_label)
@@ -95,7 +95,7 @@ class CodeWriter(object):
               or segment == self.SegmentType.local.name
               or segment == self.SegmentType.this.name
               or segment == self.SegmentType.that.name):
-            self._push_mem(self._seg_reg_map[segment], index)
+            self._push_mem(self._seg_reg_map[self.SegmentType[segment]], index)
         elif segment == self.SegmentType.pointer.name:
             if index != "0" or index != "1":
                 raise Exception('Segment index out of range.')
@@ -152,7 +152,7 @@ class CodeWriter(object):
     def _pop(self, segment, index):
         pass
 
-    def _stack_to_dest(self, dest):
+    def _pop_to_dest(self, dest):
         """Pop an item from the stack and put it in the dest register(s)
         """
         self._dec_sp()              # --SP
@@ -234,12 +234,15 @@ class CodeWriter(object):
     def write_goto(self, label):
         """Translates the GOTO command
         """
-        pass
+        self._a_command(label)
+        self._c_command(None, "0", "JMP")
     
     def write_if(self, label):
         """Translates the IF_GOTO command
         """
-        pass
+        self._pop_to_dest("D")
+        self._a_command(label)
+        self._c_command(None, "D", "JNE")
     
     def write_call(self, function_name, num_args):
         """Translates the CALL command

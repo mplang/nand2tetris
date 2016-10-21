@@ -82,7 +82,10 @@ class Lexer(object):
                 self.char_class = CharacterClass.DIGIT
             elif c.isspace():
                 self.char_class = CharacterClass.WHITESPACE
-            elif c in ['_', '.']:
+                # TODO: The dash is required for if-goto, but is otherwise
+                # invalid in identifiers; does this cause problems with
+                # subtraction or negation?
+            elif c in ['_', '.', '-']:
                 self.char_class = CharacterClass.MISC_CHAR
             else:
                 self.char_class = CharacterClass.OTHER
