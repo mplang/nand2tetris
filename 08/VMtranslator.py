@@ -32,6 +32,7 @@ class VMtranslator(object):
         if (self._file_list is None) or (len(self._file_list) == 0):
             raise Exception("No valid files to translate.")
         with CodeWriter(self._out_filename) as writer:
+            writer.write_init()
             for infile in self._file_list:
                 p = Parser(infile)
                 while p.has_more_commands():

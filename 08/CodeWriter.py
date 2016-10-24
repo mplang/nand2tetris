@@ -25,6 +25,8 @@ class CodeWriter(object):
                 SegmentType.local: "LCL",
                 SegmentType.this: "THIS",
                 SegmentType.that: "THAT"}
+    
+    _temp_reg = ["R13", "R14", "R15"]   # Temporary registers
 
     def __init__(self, out_filename):
         self._out_filename = out_filename
@@ -89,6 +91,8 @@ class CodeWriter(object):
     # Stack manipulation
 
     def _push(self, segment, index):
+        """Pushes the value at the designated segment and index on the stack
+        """
         if segment == self.SegmentType.constant.name:
             self._push_value(index)
         elif (segment == self.SegmentType.argument.name
@@ -150,7 +154,31 @@ class CodeWriter(object):
         self._push_comp("D")
 
     def _pop(self, segment, index):
-        pass
+        """Pops the value from the stack to the designated segment and index
+        """
+        if (segment == self.SegmentType.argument.name
+              or segment == self.SegmentType.local.name
+              or segment == self.SegmentType.this.name
+              or segment == self.SegmentType.that.name):
+            self._pop_to_mem(self._seg_reg_map[self.SegmentType[segment]], index)
+        elif segment == self.SegmentType.pointer.name:
+            if index != "0" or index != "1":
+                raise Exception('Segment index out of range.')
+            else:
+                self._pop_to_reg("THIS" if index == "0" else "THAT")
+        elif segment == self.SegmentType.temp.name:
+            try:
+                idx = int(index)
+            except:
+                raise Exception('Invalid segment index value.')
+            if idx < 0 or idx > 7:
+                raise Exception('Segment index out of range.')
+            else:
+                self._pop_to_reg("R{}".format(5+idx))
+        elif segment == self.SegmentType.static.name:
+            self._pop_to_static("{}.{}".format(self._basename, index))
+        else:
+            raise Exception('Unknown segment type "{}".'.format(segment))
 
     def _pop_to_dest(self, dest):
         """Pop an item from the stack and put it in the dest register(s)
