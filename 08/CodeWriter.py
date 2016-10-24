@@ -21,7 +21,7 @@ class CodeWriter(object):
 
     # map of segment types to assembler register labels
     _seg_reg_map = {
-                SegmentType.argument: 'ARG',
+                SegmentType.argument: "ARG",
                 SegmentType.local: "LCL",
                 SegmentType.this: "THIS",
                 SegmentType.that: "THAT"}
@@ -247,17 +247,50 @@ class CodeWriter(object):
     def write_call(self, function_name, num_args):
         """Translates the CALL command
         """
-        pass
+        return_label = self._get_label()
+        self._push_value(return_label)  # push return address
+        self._push_reg("LCL")
+        self._push_reg("ARG")   
+        self._push_reg("THIS")
+        self._push_reg("THAT")
+        self._a_command(num_args + 5)   # @num_args+5
+        self._c_command("D", "A")       # D=A
+        self._a_command("SP")           # @SP
+        self._c_command("A", "M")       # A=M
+        self._c_command("D", "A-D")     # D=A-D
+        self._a_command("ARG")          # @ARG
+        self._c_command("M", "D")       # M=D
+        self._a_command("SP")           # @SP
+        self._c_command("D", "M")       # D=M
+        self._a_command("LCL")          # @LCL
+        self._c_command("M", "D")       # M=D
+        self._a_command(function_name)  # @function_name
+        self._c_command(None, 0, "JMP") # 0;JMP
+        self._l_command(return_label)   # (return_label)
     
     def write_return(self):
         """Translates the RETURN command
         """
-        pass
+        self._a_command("LCL")      # @LCL
+        self._c_command("D", "M")   # D=M
+        self._a_command("FRAME")    # @FRAME
+        self._c_command("M", "D")   # M=D
+        # *(LCL-5) == return_address
+        # @5
+        # D=D-A
+        # @RET
+        # M=D
+        # TODO: Finish me! Also, _pop()!
+        
+        
     
     def write_function(self, function_name, num_locals):
         """Translates the FUNCTION command
         """
-        pass
+        self._l_command(function_name)
+        # foreach i in [0..num_locals]: push 0
+        for i in range(num_locals):
+            self._push_value(0)
 
     def write_push_pop(self, command, segment, index):
         """Translates PUSH and POP commands

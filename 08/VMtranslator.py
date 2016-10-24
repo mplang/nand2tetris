@@ -46,6 +46,8 @@ class VMtranslator(object):
                         writer.write_if(p.arg1)
                     elif p.command_type == VmToken.GOTO:
                         writer.write_goto(p.arg1)
+                    elif p.command_type == VmToken.FUNCTION:
+                        writer.write_function(p.arg1, p.arg2)
                     else:
                         raise Exception('Unknown command type "{}".'.format(p.command_type))
 
