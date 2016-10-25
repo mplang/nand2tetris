@@ -179,6 +179,18 @@ class CodeWriter(object):
             self._pop_to_static("{}.{}".format(self._basename, index))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
+        
+    def _pop_to_mem(self, reg, offset):
+        self._a_command(offset)
+        self._c_command("D", "A")
+        self._a_command(reg)
+        self._c_command("A", "M")
+        self._c_command("D", "D+A")
+        self._a_command(self._temp_reg[0])
+        self._c_command("M", "D")
+        self._pop_to_dest("D")
+        self._a_command(self._temp_reg[0])
+        self._c_command("M", "D")        
 
     def _pop_to_dest(self, dest):
         """Pop an item from the stack and put it in the dest register(s)
