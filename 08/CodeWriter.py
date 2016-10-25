@@ -25,13 +25,11 @@ class CodeWriter(object):
                 SegmentType.local: "LCL",
                 SegmentType.this: "THIS",
                 SegmentType.that: "THAT"}
-    
-    _temp_reg = ["R13", "R14", "R15"]   # Temporary registers
 
     def __init__(self, out_filename):
         self._out_filename = out_filename
         self._label_count = 0
-    
+
     def __enter__(self):
         self._file = open(self._out_filename, 'w')
         return self
@@ -125,14 +123,14 @@ class CodeWriter(object):
         self._a_command(value)
         self._c_command("D", "A")
         self._push_comp("D")
-    
+
     def _push_comp(self, comp):
         """Pushes the value of the given comp field on the stack
         """
         self._load_sp()
         self._c_command("M", comp)
         self._inc_sp()
-    
+
     def _push_mem(self, reg, offset):
         """Pushes the value at M[*reg+offset] on the stack
         """
@@ -145,7 +143,7 @@ class CodeWriter(object):
         self._load_sp()
         self._c_command("M", "D")
         self._inc_sp()
-    
+
     def _push_reg(self, reg):
         """Pushes the register value on the stack
         """
@@ -176,24 +174,34 @@ class CodeWriter(object):
             else:
                 self._pop_to_reg("R{}".format(5+idx))
         elif segment == self.SegmentType.static.name:
-            self._pop_to_static("{}.{}".format(self._basename, index))
+            self._pop_to_reg("{}.{}".format(self._basename, index))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
-        
+
+    def _pop_to_reg(self, reg):
+        """Pop an item from the stack and put it in the destination register
+        """
+        self._pop_to_dest("D")
+        self._a_command(reg)
+        self._c_command("M", "D")
+
     def _pop_to_mem(self, reg, offset):
+        """Pop an item from the stack and put it in RAM[reg+offset]
+        """
+        # TODO: Refactor this to better handle the 0-offset case
         self._a_command(offset)
         self._c_command("D", "A")
         self._a_command(reg)
         self._c_command("A", "M")
         self._c_command("D", "D+A")
-        self._a_command(self._temp_reg[0])
+        self._a_command("R13")
         self._c_command("M", "D")
         self._pop_to_dest("D")
-        self._a_command(self._temp_reg[0])
-        self._c_command("M", "D")        
+        self._a_command("R13")
+        self._c_command("M", "D")
 
     def _pop_to_dest(self, dest):
-        """Pop an item from the stack and put it in the dest register(s)
+        """Pop an item from the stack and put it in dest
         """
         self._dec_sp()              # --SP
         self._load_sp()            # A=M[SP]
@@ -257,7 +265,7 @@ class CodeWriter(object):
         return label
 
     # Public methods
-    
+
     def write_init(self):
         """Generates the VM bootstrap code
         """
@@ -265,32 +273,34 @@ class CodeWriter(object):
         self._c_command("D", "A")
         self._a_command("SP")
         self._c_command("M", "D")
-    
+
     def write_label(self, label):
         """Translates the LABEL command
         """
+        # TODO: We need to keep track of the current function name
+        # so that we can create a globally-unique label
         self._l_command(label)
-    
+
     def write_goto(self, label):
         """Translates the GOTO command
         """
         self._a_command(label)
         self._c_command(None, "0", "JMP")
-    
+
     def write_if(self, label):
         """Translates the IF_GOTO command
         """
         self._pop_to_dest("D")
         self._a_command(label)
         self._c_command(None, "D", "JNE")
-    
+
     def write_call(self, function_name, num_args):
         """Translates the CALL command
         """
         return_label = self._get_label()
         self._push_value(return_label)  # push return address
         self._push_reg("LCL")
-        self._push_reg("ARG")   
+        self._push_reg("ARG")
         self._push_reg("THIS")
         self._push_reg("THAT")
         self._a_command(num_args + 5)   # @num_args+5
@@ -307,23 +317,30 @@ class CodeWriter(object):
         self._a_command(function_name)  # @function_name
         self._c_command(None, 0, "JMP") # 0;JMP
         self._l_command(return_label)   # (return_label)
-    
+
     def write_return(self):
         """Translates the RETURN command
         """
         self._a_command("LCL")      # @LCL
         self._c_command("D", "M")   # D=M
-        self._a_command("FRAME")    # @FRAME
+        self._a_command("R13")      # @FRAME
         self._c_command("M", "D")   # M=D
-        # *(LCL-5) == return_address
-        # @5
-        # D=D-A
-        # @RET
-        # M=D
-        # TODO: Finish me! Also, _pop()!
-        
-        
-    
+        self._a_command(5)          # @5
+        self._c_command("D", "D-A") # D=D-A
+        self._a_command("R14")      # @RET
+        self._c_command("M", "D")   # M=D
+        self._pop_to_mem("ARG", 0)
+        self._a_command("ARG")
+        self._c_command("D", "M")
+        self._a_command("SP")
+        self._c_command("M", "D+1")
+        # THAT = FRAME-1
+        # THIS = FRAME-2
+        # ARG = FRAME-3
+        # LCL = FRAME-4
+        self._a_command("RET")
+        self._c_command(None, 0, "JMP")
+
     def write_function(self, function_name, num_locals):
         """Translates the FUNCTION command
         """
