@@ -18,6 +18,7 @@ class VMtranslator(object):
         self._file_list = None
         basename = None
         if os.path.isdir(source):
+            # TODO: This does not output to the correct folder
             basename = os.path.normpath(os.path.basename(source))
             self._file_list = glob(os.path.join(source, '*.vm'))
         else:
@@ -29,11 +30,13 @@ class VMtranslator(object):
             self._out_filename = "{}.asm".format(basename)
     
     def translate(self):
+        print("Starting translation...")
         if (self._file_list is None) or (len(self._file_list) == 0):
             raise Exception("No valid files to translate.")
         with CodeWriter(self._out_filename) as writer:
             writer.write_init()
             for infile in self._file_list:
+                print("Processing file '{}' ...".format(infile))
                 p = Parser(infile)
                 while p.has_more_commands():
                     p.advance()
@@ -49,8 +52,13 @@ class VMtranslator(object):
                         writer.write_goto(p.arg1)
                     elif p.command_type == VmToken.FUNCTION:
                         writer.write_function(p.arg1, p.arg2)
+                    elif p.command_type == VmToken.CALL:
+                        writer.write_function(p.arg1, p.arg2)
+                    elif p.command_type == VmToken.RETURN:
+                        writer.write_return()
                     else:
                         raise Exception('Unknown command type "{}".'.format(p.command_type))
+        print("Translation complete.\nOutput is '{}'".format(self._out_filename))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

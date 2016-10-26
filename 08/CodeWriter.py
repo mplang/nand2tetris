@@ -25,10 +25,13 @@ class CodeWriter(object):
                 SegmentType.local: "LCL",
                 SegmentType.this: "THIS",
                 SegmentType.that: "THAT"}
+    
+    _temp_reg = ["R13", "R14", "R15"]
 
     def __init__(self, out_filename):
         self._out_filename = out_filename
         self._label_count = 0
+        self._func_stack = ['Sys.init']
 
     def __enter__(self):
         self._file = open(self._out_filename, 'w')
@@ -91,29 +94,29 @@ class CodeWriter(object):
     def _push(self, segment, index):
         """Pushes the value at the designated segment and index on the stack
         """
+        try:
+            idx = int(index)
+        except:
+            raise Exception('Invalid segment index value: {}'.format(index))
         if segment == self.SegmentType.constant.name:
-            self._push_value(index)
+            self._push_value(idx)
         elif (segment == self.SegmentType.argument.name
               or segment == self.SegmentType.local.name
               or segment == self.SegmentType.this.name
               or segment == self.SegmentType.that.name):
-            self._push_mem(self._seg_reg_map[self.SegmentType[segment]], index)
+            self._push_mem(self._seg_reg_map[self.SegmentType[segment]], idx)
         elif segment == self.SegmentType.pointer.name:
-            if index != "0" or index != "1":
-                raise Exception('Segment index out of range.')
+            if idx != 0 and idx != 1:
+                raise Exception('Segment index out of range: {}'.format(idx))
             else:
-                self._push_reg("THIS" if index == "0" else "THAT")
+                self._push_reg("THIS" if idx == "0" else "THAT")
         elif segment == self.SegmentType.temp.name:
-            try:
-                idx = int(index)
-            except:
-                raise Exception('Invalid segment index value.')
             if idx < 0 or idx > 7:
-                raise Exception('Segment index out of range.')
+                raise Exception('Segment index out of range: {}'.format(idx))
             else:
                 self._push_reg("R{}".format(5+idx))
         elif segment == self.SegmentType.static.name:
-            self._push_reg("{}.{}".format(self._basename, index))
+            self._push_reg("{}.{}".format(self._basename, idx))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
 
@@ -154,27 +157,27 @@ class CodeWriter(object):
     def _pop(self, segment, index):
         """Pops the value from the stack to the designated segment and index
         """
+        try:
+            idx = int(index)
+        except:
+            raise Exception('Invalid segment index value: {}'.format(index))
         if (segment == self.SegmentType.argument.name
               or segment == self.SegmentType.local.name
               or segment == self.SegmentType.this.name
               or segment == self.SegmentType.that.name):
-            self._pop_to_mem(self._seg_reg_map[self.SegmentType[segment]], index)
+            self._pop_to_mem(self._seg_reg_map[self.SegmentType[segment]], idx)
         elif segment == self.SegmentType.pointer.name:
-            if index != "0" or index != "1":
-                raise Exception('Segment index out of range.')
+            if idx != 0 and idx != 1:
+                raise Exception('Segment index out of range: {}'.format(idx))
             else:
-                self._pop_to_reg("THIS" if index == "0" else "THAT")
+                self._pop_to_reg("THIS" if idx == 0 else "THAT")
         elif segment == self.SegmentType.temp.name:
-            try:
-                idx = int(index)
-            except:
-                raise Exception('Invalid segment index value.')
             if idx < 0 or idx > 7:
-                raise Exception('Segment index out of range.')
+                raise Exception('Segment index out of range: {}'.format(idx))
             else:
                 self._pop_to_reg("R{}".format(5+idx))
         elif segment == self.SegmentType.static.name:
-            self._pop_to_reg("{}.{}".format(self._basename, index))
+            self._pop_to_reg("{}.{}".format(self._basename, idx))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
 
@@ -194,10 +197,13 @@ class CodeWriter(object):
         self._a_command(reg)
         self._c_command("A", "M")
         self._c_command("D", "D+A")
-        self._a_command("R13")
+        t1 = self._temp_reg.pop()
+        self._a_command(t1)
         self._c_command("M", "D")
         self._pop_to_dest("D")
-        self._a_command("R13")
+        self._a_command(t1)
+        self._c_command("A", "M")
+        self._temp_reg.append(t1)
         self._c_command("M", "D")
 
     def _pop_to_dest(self, dest):
@@ -240,7 +246,7 @@ class CodeWriter(object):
         line = ''
         if dest != None:
             line = dest + '='
-        line += comp
+        line += str(comp)
         if jump != None:
             line += ';' + jump
         self._writeline(line)
@@ -273,26 +279,31 @@ class CodeWriter(object):
         self._c_command("D", "A")
         self._a_command("SP")
         self._c_command("M", "D")
+        self.write_call("Sys.init", 0)
 
     def write_label(self, label):
         """Translates the LABEL command
         """
-        # TODO: We need to keep track of the current function name
-        # so that we can create a globally-unique label
-        self._l_command(label)
+        try:
+            self._l_command(self._create_func_label(label))
+        except:
+            print("Unable to write label: '{}'".format(label))
 
     def write_goto(self, label):
         """Translates the GOTO command
         """
-        self._a_command(label)
+        self._a_command(self._create_func_label(label))
         self._c_command(None, "0", "JMP")
 
     def write_if(self, label):
         """Translates the IF_GOTO command
         """
         self._pop_to_dest("D")
-        self._a_command(label)
+        self._a_command(self._create_func_label(label))
         self._c_command(None, "D", "JNE")
+
+    def _create_func_label(self, label):
+        return "{}${}".format(self._func_stack[-1], label)
 
     def write_call(self, function_name, num_args):
         """Translates the CALL command
@@ -321,32 +332,73 @@ class CodeWriter(object):
     def write_return(self):
         """Translates the RETURN command
         """
+        # Store LCL address to R13 ("FRAME")
         self._a_command("LCL")      # @LCL
-        self._c_command("D", "M")   # D=M
-        self._a_command("R13")      # @FRAME
-        self._c_command("M", "D")   # M=D
+        self._c_command("D", "M")   # D=RAM[LCL]
+        t1 = self._temp_reg.pop()
+        self._a_command(t1)      # @R13 ("FRAME")
+        self._c_command("M", "D")   # RAM[R13]=D
+        # Store return address (FRAME-5) to R14 ("RET")
         self._a_command(5)          # @5
-        self._c_command("D", "D-A") # D=D-A
-        self._a_command("R14")      # @RET
-        self._c_command("M", "D")   # M=D
-        self._pop_to_mem("ARG", 0)
-        self._a_command("ARG")
-        self._c_command("D", "M")
-        self._a_command("SP")
-        self._c_command("M", "D+1")
+        self._c_command("D", "D-A") # D=D-A (FRAME-5)
+        t2 = self._temp_reg.pop()
+        self._a_command(t2)      # @R14 ("RET")
+        self._c_command("M", "D")   # RAM[R14]=D
+        # Pop return value and place in RAM[ARG]
+        self._pop_to_mem("ARG", 0)  # RAM[ARG]=POP
+        # Reset stack pointer to ARG+1
+        self._a_command("ARG")      # @ARG
+        self._c_command("D", "M")   # D=RAM[ARG]
+        self._a_command("SP")       # @SP
+        self._c_command("M", "D+1") # RAM[SP]=RAM[ARG]+1
         # THAT = FRAME-1
+        # TODO: Factor-out the next four lines
+        self._a_command(t1)      # @R13 ("FRAME")
+        self._c_command("M", "M-1") # FRAME=FRAME-1
+        self._c_command("A", "M")   # A=RAM[FRAME]
+        self._c_command("D", "M")   # D=RAM[A]
+        self._a_command("THAT")     # @THAT
+        self._c_command("M", "D")   # RAM[THAT]=D
         # THIS = FRAME-2
+        self._a_command(t1)      # @R13 ("FRAME")
+        self._c_command("M", "M-1") # FRAME=FRAME-1
+        self._c_command("A", "M")   # A=RAM[FRAME]
+        self._c_command("D", "M")   # D=RAM[A]
+        self._a_command("THIS")     # @THIS
+        self._c_command("M", "D")   # RAM[THIS]=D
         # ARG = FRAME-3
+        self._a_command(t1)      # @R13 ("FRAME")
+        self._c_command("M", "M-1") # FRAME=FRAME-1
+        self._c_command("A", "M")   # A=RAM[FRAME]
+        self._c_command("D", "M")   # D=RAM[A]
+        self._a_command("ARG")     # @ARG
+        self._c_command("M", "D")   # RAM[ARG]=D
         # LCL = FRAME-4
-        self._a_command("RET")
+        self._a_command(t1)      # @R13 ("FRAME")
+        self._c_command("M", "M-1") # FRAME=FRAME-1
+        self._c_command("A", "M")   # A=RAM[FRAME]
+        self._temp_reg.append(t1)
+        self._c_command("D", "M")   # D=RAM[A]
+        self._a_command("LCL")     # @LCL
+        self._c_command("M", "D")   # RAM[LCL]=D
+        # GOTO RET
+        self._a_command(t2)
+        self._c_command("A", "M")
+        self._temp_reg.append(t2)
         self._c_command(None, 0, "JMP")
+        self._func_stack.pop()
 
     def write_function(self, function_name, num_locals):
         """Translates the FUNCTION command
         """
+        self._func_stack.append(function_name)
+        try:
+            n = int(num_locals)
+        except:
+            print("Invalid num_locals value: {}".format(num_locals))
         self._l_command(function_name)
         # foreach i in [0..num_locals]: push 0
-        for i in range(num_locals):
+        for i in range(n):
             self._push_value(0)
 
     def write_push_pop(self, command, segment, index):
