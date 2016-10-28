@@ -15,19 +15,22 @@ class VMtranslator(object):
         self._set_inputs(source)
     
     def _set_inputs(self, source):
+        source = os.path.normpath(source)
         self._file_list = None
         basename = None
+        dirname = None
         if os.path.isdir(source):
-            # TODO: This does not output to the correct folder
-            basename = os.path.normpath(os.path.basename(source))
-            self._file_list = glob(os.path.join(source, '*.vm'))
+            dirname = source
+            basename = os.path.basename(dirname)
+            self._file_list = glob(os.path.join(dirname, '*.vm'))
         else:
             basename, ext = os.path.splitext(source)
             if ext.lower() != ".vm":
                 raise Exception("Invalid input file type!")
             self._file_list = [source]
+            dirname = os.path.dirname(source)
         if basename != None:
-            self._out_filename = "{}.asm".format(basename)
+            self._out_filename = os.path.join(dirname, "{}.asm".format(basename))
     
     def translate(self):
         print("Starting translation...")
@@ -53,7 +56,7 @@ class VMtranslator(object):
                     elif p.command_type == VmToken.FUNCTION:
                         writer.write_function(p.arg1, p.arg2)
                     elif p.command_type == VmToken.CALL:
-                        writer.write_function(p.arg1, p.arg2)
+                        writer.write_call(p.arg1, p.arg2)
                     elif p.command_type == VmToken.RETURN:
                         writer.write_return()
                     else:

@@ -31,7 +31,7 @@ class CodeWriter(object):
     def __init__(self, out_filename):
         self._out_filename = out_filename
         self._label_count = 0
-        self._func_stack = ['Sys.init']
+        self._curr_func = ''
 
     def __enter__(self):
         self._file = open(self._out_filename, 'w')
@@ -230,6 +230,14 @@ class CodeWriter(object):
         """
         self._a_command("SP")       # @SP
         self._c_command("M", "M-1") # M=M-1
+    
+    def _restore_saved_reg(self, ptr, dest):
+        self._a_command(ptr)        # @R13 ("FRAME")
+        self._c_command("M", "M-1") # FRAME=FRAME-1
+        self._c_command("A", "M")   # A=RAM[FRAME]
+        self._c_command("D", "M")   # D=RAM[A]
+        self._a_command(dest)       # @ARG
+        self._c_command("M", "D")   # RAM[ARG]=D
 
     # Code generation
 
@@ -269,6 +277,9 @@ class CodeWriter(object):
         label = "LABEL{}".format(self._label_count)
         self._label_count += 1
         return label
+    
+    def _create_func_label(self, label):
+        return "{}${}".format(self._curr_func, label)
 
     # Public methods
 
@@ -302,9 +313,6 @@ class CodeWriter(object):
         self._a_command(self._create_func_label(label))
         self._c_command(None, "D", "JNE")
 
-    def _create_func_label(self, label):
-        return "{}${}".format(self._func_stack[-1], label)
-
     def write_call(self, function_name, num_args):
         """Translates the CALL command
         """
@@ -314,7 +322,7 @@ class CodeWriter(object):
         self._push_reg("ARG")
         self._push_reg("THIS")
         self._push_reg("THAT")
-        self._a_command(num_args + 5)   # @num_args+5
+        self._a_command(int(num_args) + 5)   # @num_args+5
         self._c_command("D", "A")       # D=A
         self._a_command("SP")           # @SP
         self._c_command("A", "M")       # A=M
@@ -352,46 +360,24 @@ class CodeWriter(object):
         self._a_command("SP")       # @SP
         self._c_command("M", "D+1") # RAM[SP]=RAM[ARG]+1
         # THAT = FRAME-1
-        # TODO: Factor-out the next four lines
-        self._a_command(t1)      # @R13 ("FRAME")
-        self._c_command("M", "M-1") # FRAME=FRAME-1
-        self._c_command("A", "M")   # A=RAM[FRAME]
-        self._c_command("D", "M")   # D=RAM[A]
-        self._a_command("THAT")     # @THAT
-        self._c_command("M", "D")   # RAM[THAT]=D
+        self._restore_saved_reg(t1, "THAT")
         # THIS = FRAME-2
-        self._a_command(t1)      # @R13 ("FRAME")
-        self._c_command("M", "M-1") # FRAME=FRAME-1
-        self._c_command("A", "M")   # A=RAM[FRAME]
-        self._c_command("D", "M")   # D=RAM[A]
-        self._a_command("THIS")     # @THIS
-        self._c_command("M", "D")   # RAM[THIS]=D
+        self._restore_saved_reg(t1, "THIS")
         # ARG = FRAME-3
-        self._a_command(t1)      # @R13 ("FRAME")
-        self._c_command("M", "M-1") # FRAME=FRAME-1
-        self._c_command("A", "M")   # A=RAM[FRAME]
-        self._c_command("D", "M")   # D=RAM[A]
-        self._a_command("ARG")     # @ARG
-        self._c_command("M", "D")   # RAM[ARG]=D
+        self._restore_saved_reg(t1, "ARG")
         # LCL = FRAME-4
-        self._a_command(t1)      # @R13 ("FRAME")
-        self._c_command("M", "M-1") # FRAME=FRAME-1
-        self._c_command("A", "M")   # A=RAM[FRAME]
+        self._restore_saved_reg(t1, "LCL")
         self._temp_reg.append(t1)
-        self._c_command("D", "M")   # D=RAM[A]
-        self._a_command("LCL")     # @LCL
-        self._c_command("M", "D")   # RAM[LCL]=D
         # GOTO RET
         self._a_command(t2)
         self._c_command("A", "M")
         self._temp_reg.append(t2)
         self._c_command(None, 0, "JMP")
-        self._func_stack.pop()
 
     def write_function(self, function_name, num_locals):
         """Translates the FUNCTION command
         """
-        self._func_stack.append(function_name)
+        self._curr_func = function_name
         try:
             n = int(num_locals)
         except:
