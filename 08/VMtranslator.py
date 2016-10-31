@@ -40,6 +40,7 @@ class VMtranslator(object):
             writer.write_init()
             for infile in self._file_list:
                 print("Processing file '{}' ...".format(infile))
+                writer.set_filename(os.path.splitext(os.path.basename(infile))[0])
                 p = Parser(infile)
                 while p.has_more_commands():
                     p.advance()

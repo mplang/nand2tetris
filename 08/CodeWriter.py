@@ -116,7 +116,7 @@ class CodeWriter(object):
             else:
                 self._push_reg("R{}".format(5+idx))
         elif segment == self.SegmentType.static.name:
-            self._push_reg("{}.{}".format(self._basename, idx))
+            self._push_reg("{}.{}".format(self._curr_file, idx))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
 
@@ -177,7 +177,7 @@ class CodeWriter(object):
             else:
                 self._pop_to_reg("R{}".format(5+idx))
         elif segment == self.SegmentType.static.name:
-            self._pop_to_reg("{}.{}".format(self._basename, idx))
+            self._pop_to_reg("{}.{}".format(self._curr_file, idx))
         else:
             raise Exception('Unknown segment type "{}".'.format(segment))
 
@@ -291,6 +291,9 @@ class CodeWriter(object):
         self._a_command("SP")
         self._c_command("M", "D")
         self.write_call("Sys.init", 0)
+    
+    def set_filename(self, filename):
+        self._curr_file = filename
 
     def write_label(self, label):
         """Translates the LABEL command
