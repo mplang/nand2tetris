@@ -348,7 +348,8 @@ class CodeWriter(object):
         self._c_command("M", "D")   # RAM[R13]=D
         # Store return address (FRAME-5) to R14 ("RET")
         self._a_command(5)          # @5
-        self._c_command("D", "D-A") # D=D-A (FRAME-5)
+        self._c_command("A", "D-A") # D=D-A (FRAME-5)
+        self._c_command("D", "M")   # D=RAM[ARG]
         t2 = self._temp_reg.pop()
         self._a_command(t2)      # @R14 ("RET")
         self._c_command("M", "D")   # RAM[R14]=D
