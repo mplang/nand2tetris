@@ -221,3 +221,7 @@ pip-log.txt
 *.vm
 *.asm
 *.hack
+*.html
+*.xml
+*.jack
+*.iml

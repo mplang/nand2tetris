@@ -32,61 +32,8 @@ class JackTokenizer(object):
         self.filename = filename
         self._iter = self._file_iter()
         self.next_char = None
-        self._curr_token_type = JackToken.EOF
-        self._curr_token = None
-        self._curr_lexeme = None
         self._skip_line = False
         self.tokens = deque()
-
-    @property
-    def curr_keyword(self):
-        """Returns the keyword which is the current token if the current
-           token is KEYWORD
-        """
-        if self._curr_token_type == JackToken.KEYWORD:
-            return self._curr_token
-        else:
-            return None
-
-    @property
-    def curr_symbol(self):
-        """Returns the character which is the current token if the current
-           token is SYMBOL
-        """
-        if self._curr_token_type == JackToken.SYMBOL:
-            return self._curr_lexeme
-        else:
-            return None
-
-    @property
-    def curr_identifier(self):
-        """Returns the identifier which is the current token if the current
-           token is IDENTIFIER
-        """
-        if self._curr_token_type == JackToken.IDENTIFIER:
-            return self._curr_lexeme
-        else:
-            return None
-
-    @property
-    def curr_int_val(self):
-        """Returns the integer value which is the current token if the current
-           token is INT_CONST
-        """
-        if self._curr_token_type == JackToken.INT_CONST:
-            return self._curr_lexeme
-        else:
-            return None
-
-    @property
-    def curr_string_val(self):
-        """Returns the integer value which is the current token if the current
-           token is STRING_CONST
-        """
-        if self._curr_token_type == JackToken.STRING_CONST:
-            return self._curr_lexeme
-        else:
-            return None
 
     def has_more_tokens(self):
         """Returns True if there are more tokens in the input
@@ -165,8 +112,11 @@ class JackTokenizer(object):
                    or self.char_class == CharacterClass.DIGIT):
                 lexeme += self.next_char
                 self._get_char()
-            # TODO: This doesn't return the right thing
-            return Token(self._lookup_keyword(lexeme), lexeme)
+            keyword = self._lookup_keyword(lexeme)
+            if keyword:
+                return Token(JackToken.KEYWORD, keyword)
+            else:
+                return Token(JackToken.IDENTIFIER, lexeme)
         elif self.char_class == CharacterClass.DIGIT:
             # parse integer literals
             self._get_char()
@@ -175,18 +125,42 @@ class JackTokenizer(object):
                 self._get_char()
             return Token(JackToken.INT_CONST, lexeme)
         elif self.char_class == CharacterClass.OTHER:
-            # parse comments
+            # TODO: Handle multi-line comments
             if self.next_char == '/':
-                # We should be reading a comment
                 self._get_char()
                 if self.next_char == '/':
-                    # We found a comment! Skip the rest of the line
+                    # Single-line comment; Skip the rest of the line
                     self._skip_line = True
                     self._get_char()
                     return None
+                elif self.next_char == '*':
+                    # Multi-line comment
+                    self._get_char()
+                    in_comment = True
+                    while in_comment:
+                        while self.next_char != '*':
+                            self._get_char()
+                        self._get_char()
+                        if self.next_char == '/':
+                            in_comment = False
+                    self._get_char()
+                    return None
                 else:
-                    # Not a comment; a single forward slash is invalid
-                    return Token(JackToken.ERROR, lexeme)
+                    # Not a comment, just a regular forward slash
+                    self._get_char()
+                    return Token(JackToken.SYMBOL, '/')
+            elif self.next_char == '"':
+                # parse string literal
+                lexeme = ""
+                self._get_char()
+                while self.next_char != '"':
+                    lexeme += self.next_char
+                    self._get_char()
+                self._get_char()
+                return Token(JackToken.STRING_CONST, lexeme)
+            elif self.next_char in _symbols:
+                self._get_char()
+                return Token(JackToken.SYMBOL, lexeme)
             else:
                 # There are no other valid characters
                 return Token(JackToken.ERROR, lexeme)
@@ -199,7 +173,7 @@ class JackTokenizer(object):
         for t in self.tokens:
             print("{}, {}".format(t.Token.name, t.Lexeme))
 
-    def analyze(self):
+    def tokenize(self):
         """Begins the lexical analysis of the VM IL source file
         """
         self._get_char()
@@ -214,6 +188,6 @@ class JackTokenizer(object):
                 break
 
 if __name__ == "__main__":
-    l = JackTokenizer("nand2tetris\07\StackArithmetic\StackTest\StackTest.vm")
-    l.analyze()
+    l = JackTokenizer(r"C:\Users\mlang\Desktop\programming\nand2tetris\09\Fraction\Fraction.jack")
+    l.tokenize()
     l.display_symbols()
